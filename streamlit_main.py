@@ -125,7 +125,8 @@ def plot_predicted_trajectory(times, trajectory, pred_trajectory):
 
 
 def plot_cross_attention_interactive(decoder_cross_attn_all_layers, decoder_scaled_cross_attn_all_layers,
-                                     times, ytick_labels, seq_length, available_layers):
+                                     # times, ytick_labels, seq_length, available_layers):
+                                     times, seq_length, available_layers):
     """Creates an interactive Plotly figure that can switch between layers and attention types"""
 
     # Create subplots layout
@@ -160,7 +161,8 @@ def plot_cross_attention_interactive(decoder_cross_attn_all_layers, decoder_scal
         trace_indices['sum_reg'] = idx
         fig.add_trace(go.Heatmap(
             z=sum_attn_reg, colorscale='Viridis',
-            x=list(range(seq_length)), y=ytick_labels,
+            # x=list(range(seq_length)), y=ytick_labels,
+            x=list(range(seq_length)),
             visible=(layer_idx == available_layers[0]),  # First layer visible initially
             name=f'L{layer_idx}-Regular-Sum'
         ), row=1, col=1)
@@ -171,7 +173,8 @@ def plot_cross_attention_interactive(decoder_cross_attn_all_layers, decoder_scal
         trace_indices['sum_scaled'] = idx
         fig.add_trace(go.Heatmap(
             z=sum_attn_scaled, colorscale='Viridis',
-            x=list(range(seq_length)), y=ytick_labels,
+#             x=list(range(seq_length)), y=ytick_labels,
+            x=list(range(seq_length)),
             visible=False,  # Hidden initially
             name=f'L{layer_idx}-Scaled-Sum'
         ), row=1, col=1)
@@ -188,7 +191,8 @@ def plot_cross_attention_interactive(decoder_cross_attn_all_layers, decoder_scal
             fig.add_trace(go.Heatmap(
                 z=head_attn_reg, colorscale='Viridis',
                 showscale=False,  # Hide individual colorbars
-                x=list(range(seq_length)), y=ytick_labels,
+                # x=list(range(seq_length)), y=ytick_labels,
+                x=list(range(seq_length)),
                 visible=(layer_idx == available_layers[0]),  # First layer visible initially
                 name=f'L{layer_idx}-Regular-Head{head_idx}'
             ), row=row, col=col)
@@ -200,7 +204,8 @@ def plot_cross_attention_interactive(decoder_cross_attn_all_layers, decoder_scal
             fig.add_trace(go.Heatmap(
                 z=head_attn_scaled, colorscale='Viridis',
                 showscale=False,  # Hide individual colorbars
-                x=list(range(seq_length)), y=ytick_labels,
+                # x=list(range(seq_length)), y=ytick_labels,
+                x=list(range(seq_length)),
                 visible=False,  # Hidden initially
                 name=f'L{layer_idx}-Scaled-Head{head_idx}'
             ), row=row, col=col)
@@ -577,6 +582,13 @@ if st.session_state.model_output:
 
     st.subheader(f"Analysis for Decoder Attention")
 
+    # num_tokens = len(intermediate_tokens)
+    # try:
+    #     ytick_labels = [f"Tok{i}:{intermediate_tokens[i][1][0]}" for i in range(num_tokens)]  # Safer label attempt
+    # except Exception as e:
+    #     st.warning(f"Could not generate ytick labels automatically: {e}. Using default labels.")
+    #     ytick_labels = [f"Token_{i}" for i in range(num_tokens)]
+
     # Replace the current plot_single_cross_attention implementation with:
     if results['decoder_cross_attn'] is not None and results['decoder_cross_attn'].shape[0] > selected_layer:
         # Create a container for the interactive plot
@@ -601,7 +613,7 @@ if st.session_state.model_output:
                 all_decoder_layers,  # Pass all layers
                 all_scaled_decoder_layers,  # Pass all scaled layers
                 results['times_run'],
-                ytick_labels,
+                # ytick_labels,
                 seq_length_run,
                 available_layers  # Pass all available layers
             )
