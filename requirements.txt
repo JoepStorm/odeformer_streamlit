@@ -4,3 +4,4 @@ matplotlib
 torch
 plotly
 scipy
+scikit-learn
