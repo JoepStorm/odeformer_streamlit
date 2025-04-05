@@ -3,5 +3,4 @@ numpy
 matplotlib
 torch
 plotly
-json
 scipy
