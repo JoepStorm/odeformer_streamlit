@@ -17,4 +17,5 @@ sympytorch==0.1.1
 torch==2.0.0
 tqdm==4.64.1
 plotly
+regex
 wandb
