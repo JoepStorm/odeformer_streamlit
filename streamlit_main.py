@@ -26,7 +26,7 @@ np.random.seed(2)
 # --- Cached Model Loading ---
 # Use st.cache_resource for objects that should persist across sessions/reruns
 # and are expensive to create (like loading a model).
-# @st.cache_resource
+@st.cache_resource
 def load_model():
     print("Loading ODEformer model...") # Add print statement to see when it loads
     # Ensure store_attentions=True is set here if needed globally
