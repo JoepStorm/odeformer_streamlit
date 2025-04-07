@@ -5,6 +5,7 @@ import matplotlib.colors as mcolors
 import torch
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from evaluate_trajectory import create_trajectory
 
 # import odeformer # Assuming odeformer is installed and accessible
 from odeformer.model import SymbolicTransformerRegressor
@@ -376,6 +377,29 @@ if 'selected_layer' not in st.session_state:
 
 # --- Sidebar Controls ---
 with st.sidebar:
+    st.header("Trajectory Formula")
+
+    # Initialize default formulas if not in session state
+    if 'formula1' not in st.session_state:
+        st.session_state.formula1 = "cos(t)"
+    if 'formula2' not in st.session_state:
+        st.session_state.formula2 = "sin(t)"
+    if 'formula3' not in st.session_state:
+        st.session_state.formula3 = "0"  # Default to zero for third dimension
+
+    # Display text inputs for formulas
+    formula1 = st.text_input("X Formula", value=st.session_state.formula1,
+                             help="Mathematical formula for x dimension using variable 't'")
+    formula2 = st.text_input("Y Formula", value=st.session_state.formula2,
+                             help="Mathematical formula for y dimension using variable 't'")
+    formula3 = st.text_input("Z Formula", value=st.session_state.formula3,
+                             help="Mathematical formula for z dimension using variable 't'")
+
+    # Store values in session state
+    st.session_state.formula1 = formula1
+    st.session_state.formula2 = formula2
+    st.session_state.formula3 = formula3
+
     st.header("Input Parameters")
     # Use values from session state to initialize widgets
     current_seq_length = len(st.session_state.times)
@@ -392,28 +416,21 @@ with st.sidebar:
             st.error("Start Time must be less than End Time.")
         else:
             st.session_state.times = np.linspace(t_start, t_end, seq_length)
-            # Recalculate trajectory based on new times
-            x1 = np.cos(st.session_state.times)
-            y1 = np.sin(st.session_state.times)
-            st.session_state.trajectory = np.stack([x1, y1], axis=1)
-            # MODIFY TRAJECTORY EXAMPLE (uncomment to add perturbation)
-            # if len(st.session_state.trajectory) > 29:
-            #    st.session_state.trajectory[29] -= 1.0 # Example modification
+            # Recalculate trajectory
 
-            st.session_state.model_output = None # Reset model output
-            st.session_state.selected_layer = 0 # Reset layer selection
-            print("Input trajectory updated. Model output cleared.")
-            st.rerun() # Rerun to reflect changes immediately
-
-    st.header("Visualization Options")
-    if 'use_scaled_attention' not in st.session_state:
-        st.session_state.use_scaled_attention = True
-
-    # Toggle button for attention type
-    st.session_state.use_scaled_attention = st.toggle(
-        "Use Scaled Attention",
-        value=st.session_state.use_scaled_attention,
-    )
+            formulas = [st.session_state.formula1, st.session_state.formula2, st.session_state.formula3]
+            try:
+                # Use create_trajectory from evaluate_trajectory.py
+                trajectory_array = create_trajectory(formulas, st.session_state.times)
+                st.session_state.trajectory = trajectory_array
+                st.session_state.model_output = None  # Reset model output
+                st.session_state.selected_layer = 0  # Reset layer selection
+                print("Input trajectory updated. Model output cleared.")
+                st.rerun()  # Rerun to reflect changes immediately
+                print("Rerun complete.")
+            except Exception as e:
+                st.error(f"Error in formula: {e}")
+                print(f"Formula error: {e}")
 
     st.header("Model Execution")
     if st.button("Run ODEformer Model", key="run_model_button"):
