@@ -6,6 +6,7 @@ import torch
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from evaluate_trajectory import create_trajectory
+import concurrent.futures
 
 # import odeformer # Assuming odeformer is installed and accessible
 from odeformer.model import SymbolicTransformerRegressor
@@ -67,6 +68,37 @@ def plot_predicted_trajectory(times, trajectory, pred_trajectory):
     ax.set_ylabel("Value")
     ax.set_title("Input vs. Predicted Trajectory")
     ax.legend()
+    ax.grid(True)
+    plt.tight_layout()
+    return fig
+
+
+def plot_trajectory(times, trajectory, pred_trajectory=None):
+    """
+    Plots input trajectory and optionally the predicted trajectory.
+    """
+    fig, ax = plt.subplots(figsize=(6, 3))
+    dimension = trajectory.shape[1]
+    colors = plt.cm.viridis(np.linspace(0, 1, dimension))
+
+    # Always plot input trajectory
+    for dim in range(dimension):
+        ax.scatter(times, trajectory[:, dim], color=colors[dim], label=f'Input $x_{dim}$', marker='o', alpha=0.6)
+
+    # Plot predicted trajectory if provided
+    if pred_trajectory is not None:
+        for dim in range(dimension):
+            ax.plot(times, pred_trajectory[:, dim], color=colors[dim], label=f'Predicted $x_{dim}$', linestyle='-')
+
+        # Add R2 score if we have predictions
+        r2 = r2_score(trajectory, pred_trajectory)
+        ax.text(0.02, 0.95, f'R2 Score: {r2:.4f}', transform=ax.transAxes,
+                bbox=dict(facecolor='white', alpha=0.7))
+
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Value")
+    ax.set_title("Input Trajectory" if pred_trajectory is None else "Input vs. Predicted Trajectory")
+    ax.legend(loc='best')
     ax.grid(True)
     plt.tight_layout()
     return fig
@@ -453,6 +485,16 @@ with st.sidebar:
                     # --- Predict ---
                     # pred_trajectory = dstr.predict(times_to_run, trajectory_to_run[0])
                     # r2 = r2_score(trajectory_to_run, pred_trajectory) # Calculate R2 score
+                    # Define function to run in executor
+                    def run_prediction():
+                        return dstr.predict(times_to_run, trajectory_to_run[0])
+
+                    # Use ProcessPoolExecutor which creates a new process avoiding thread issues
+                    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(run_prediction)
+                        pred_trajectory = future.result()
+                        r2 = r2_score(trajectory_to_run, pred_trajectory)
+
 
                     # --- Process & Store Results ---
                     # Ensure attentions and tokens were actually stored
@@ -518,8 +560,8 @@ with st.sidebar:
 
                     # Store everything needed for plotting
                     st.session_state.model_output = {
-                        # "pred_trajectory": pred_trajectory,
-                        # "r2_score": r2,
+                        "pred_trajectory": pred_trajectory,
+                        "r2_score": r2,
                         "decoder_cross_attn": decoder_cross_attn.detach().cpu(), # Store as CPU tensor
                         "decoder_scaled_cross_attn": decoder_scaled_cross_attn.detach().cpu(), # Store as CPU tensor
                         "intermediate_tokens": intermediate_tokens,
@@ -561,11 +603,18 @@ with st.sidebar:
 # --- Main Area Display ---
 
 # Always display the input trajectory plot
-st.subheader("1. Input Trajectory")
+st.subheader("1. Trajectory")
 if 'trajectory' in st.session_state and st.session_state.trajectory is not None:
-    fig_input = plot_input_trajectory(st.session_state.times, st.session_state.trajectory)
-    st.pyplot(fig_input)
-    plt.close(fig_input) # Close figure to free memory
+    # Check if we have model predictions to include
+    pred_trajectory = None
+    if st.session_state.model_output and 'pred_trajectory' in st.session_state.model_output:
+        pred_trajectory = st.session_state.model_output['pred_trajectory']
+
+    # Plot with or without predictions
+    fig_trajectory = plot_trajectory(st.session_state.times, st.session_state.trajectory, pred_trajectory)
+    # fig_input = plot_input_trajectory(st.session_state.times, st.session_state.trajectory) # old
+    st.pyplot(fig_trajectory)
+    plt.close(fig_trajectory) # Close figure to free memory
 else:
     st.info("Generate an input trajectory using the controls in the sidebar.")
 
@@ -586,7 +635,6 @@ if st.session_state.model_output:
     # plt.close(fig_pred)
 
     # Attention and Token Plots (conditionally based on selected layer)
-
     # Check if intermediate_tokens has data for the layer
     if results['intermediate_tokens'] and len(results['intermediate_tokens']) > selected_layer:
         token_data_layer = results['intermediate_tokens'][selected_layer]
@@ -596,6 +644,7 @@ if st.session_state.model_output:
              plt.close(fig_token)
     else:
         st.warning(f"Intermediate token data not available for layer {selected_layer}.")
+
 
     st.subheader(f"Analysis for Decoder Attention")
 
